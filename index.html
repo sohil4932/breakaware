@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE Sensor Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+        .container {
+            background-color: #f3ceaa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .data {
+            margin-top: 20px;
+        }
+        .data p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+        }
+        .chart-container {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Breathing Analyzer</h1>
+        <button id="connect">Connect</button>
+        <div class="data">
+            <p>Temperature: <span id="temperature">N/A</span> °C</p>
+            <p>Pressure: <span id="pressure">N/A</span> hPa</p>
+            <p>Humidity: <span id="humidity">N/A</span> %</p>
+        </div>
+        <div class="chart-container">
+            <canvas id="temperatureChart" width="400" height="200"></canvas>
+            <canvas id="pressureChart" width="400" height="200"></canvas>
+            <canvas id="humidityChart" width="400" height="200"></canvas>
+        </div>
+        <p id="status" class="error"></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+    <script>
+
+        const temperatureConfig = {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    data: []
+                }]
+            },
+            options: {
+                scales: {
+                        x: {
+                            type: 'time',
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        }
+                    },
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Temperature Data Over Time',
+                    },
+                },
+            }
+        };
+
+        const pressureConfig = {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Pressure (hPa)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    data: [],
+                }]
+            },
+            options: {
+                scales: {
+                        x: {
+                            type: 'time',
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Pressure'
+                            }
+                        }
+                    },
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Pressure Data Over Time',
+                    },
+                },
+            },
+        };
+
+        const humidityConfig = {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Humidity (%)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    data: [],
+                }]
+            },
+            options: {
+                scales: {
+                        x: {
+                            type: 'time',
+                            title: {
+                                display: true,
+                                text: 'Timestamp'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Humidity'
+                            }
+                        }
+                    },
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Humidity Data Over Time',
+                    },
+                },
+            },
+        };
+
+        const temperatureChart = new Chart(
+            document.getElementById('temperatureChart'),
+            temperatureConfig
+        );
+
+        const pressureChart = new Chart(
+            document.getElementById('pressureChart'),
+            pressureConfig
+        );
+
+        const humidityChart = new Chart(
+            document.getElementById('humidityChart'),
+            humidityConfig
+        );
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            const statusElement = document.getElementById('status');
+            statusElement.innerText = '';
+            try {
+                console.log('Requesting Bluetooth Device...');
+                statusElement.innerText = 'Requesting Bluetooth Device...';
+
+                // Check if the browser supports Web Bluetooth
+                if (!navigator.bluetooth) {
+                    throw new Error('Web Bluetooth API is not supported by this browser.');
+                }
+
+                // Request Bluetooth device
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['0000181a-0000-1000-8000-00805f9b34fb'] }],
+                    optionalServices: ['0000181a-0000-1000-8000-00805f9b34fb']
+                });
+
+                console.log('Connecting to GATT Server...');
+                statusElement.innerText = 'Connecting to GATT Server...';
+                const server = await device.gatt.connect();
+
+                console.log('Getting Primary Service...');
+                statusElement.innerText = 'Getting Primary Service...';
+                const service = await server.getPrimaryService('0000181a-0000-1000-8000-00805f9b34fb');
+
+                console.log('Getting Characteristics...');
+                statusElement.innerText = 'Getting Characteristics...';
+
+                const temperatureCharacteristic = await service.getCharacteristic('00002a6e-0000-1000-8000-00805f9b34fb');
+                temperatureCharacteristic.startNotifications();
+                temperatureCharacteristic.addEventListener('characteristicvaluechanged', handleTemperatureChange);
+
+                const pressureCharacteristic = await service.getCharacteristic('00002a6d-0000-1000-8000-00805f9b34fb');
+                pressureCharacteristic.startNotifications();
+                pressureCharacteristic.addEventListener('characteristicvaluechanged', handlePressureChange);
+
+                const humidityCharacteristic = await service.getCharacteristic('00002a6f-0000-1000-8000-00805f9b34fb');
+                humidityCharacteristic.startNotifications();
+                humidityCharacteristic.addEventListener('characteristicvaluechanged', handleHumidityChange);
+
+                statusElement.innerText = 'Connected to BLE device';
+                console.log('Connected to BLE device');
+            } catch (error) {
+                console.error('Failed to connect:', error);
+                statusElement.innerText = 'Failed to connect: ' + error.message;
+            }
+        });
+
+        function handleTemperatureChange(event) {
+            const value = event.target.value.getInt32(0, true);
+            const temperature = (value / 100).toFixed(2);
+            document.getElementById('temperature').innerText = temperature;
+            updateChart(new Date(), temperature, null, null);
+            // console.log('Temperature:', temperature);
+        }
+
+        function handlePressureChange(event) {
+            const value = event.target.value.getInt32(0, true);
+            const pressure = (value / 100).toFixed(2);
+            document.getElementById('pressure').innerText = pressure;
+            updateChart(new Date(), null, pressure, null);
+            // console.log('Pressure:', pressure);
+        }
+
+        function handleHumidityChange(event) {
+            const value = event.target.value.getInt32(0, true);
+            const humidity = (value / 100).toFixed(2);
+            document.getElementById('humidity').innerText = humidity;
+            updateChart(new Date(), null, null, humidity);
+            // console.log('Humidity:', humidity);
+        }
+
+        function updateChart(time, temperature, pressure, humidity) {
+            if (temperature !== null) {
+                temperatureChart.data.datasets[0].data.push({x: time, y: temperature});
+                temperatureChart.update();
+                if (temperatureChart.data.datasets[0].data.length > 100) {
+                    temperatureChart.data.datasets[0].data.shift(); // Remove the oldest data point
+                }
+            }
+            if (pressure !== null) {
+                pressureChart.data.datasets[0].data.push({x: time, y: pressure});
+                pressureChart.update();
+                if (pressureChart.data.datasets[0].data.length > 100) {
+                    pressureChart.data.datasets[0].data.shift();
+                }
+            }
+            if (humidity !== null) {
+                humidityChart.data.datasets[0].data.push({x: time, y: humidity});
+                humidityChart.update();
+                if (humidityChart.data.datasets[0].data.length > 100) {
+                    humidityChart.data.datasets[0].data.shift();
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
