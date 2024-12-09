@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../config/firebase';
-import { ref, get } from 'firebase/database';
+import { ref, get, remove } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+import { Button } from "../../components/ui/button";
+import {Loader2 } from "lucide-react";
+import { useToast } from '@/hooks/use-toast';
 
 interface SessionData {
   userId: string;
@@ -23,6 +27,8 @@ const SessionHistory = () => {
   const { currentUser } = useAuth();
   const [sessions, setSessions] = useState<SessionWithId[]>([]);
   const [selectedSession, setSelectedSession] = useState<SessionWithId | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -80,6 +86,37 @@ const SessionHistory = () => {
     return `${seconds}s`;
   };
 
+  const handleDeleteSession = async (sessionId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent session selection when clicking delete
+    setDeletingSessionId(sessionId);
+    
+    try {
+      const sessionRef = ref(db, `sessions/${sessionId}`);
+      await remove(sessionRef);
+      
+      // Update local state
+      setSessions(prev => prev.filter(session => session.id !== sessionId));
+      if (selectedSession?.id === sessionId) {
+        setSelectedSession(null);
+      }
+      
+      toast({
+        title: "Success",
+        description: "Session deleted successfully",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete session. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex h-screen overflow-hidden">
@@ -95,20 +132,38 @@ const SessionHistory = () => {
                     selectedSession?.id === session.id
                       ? 'bg-blue-100 border-blue-500'
                       : 'bg-white hover:bg-gray-50'
-                  } border`}
+                  } border relative`}
                   onClick={() => setSelectedSession(session)}
                 >
-                  <div className="font-medium">
-                    Session {new Date(session.startTime).toLocaleDateString()}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Start: {formatDateTime(session.startTime)}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Duration: {formatDuration(session.startTime, session.endTime)}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Cycles: {session.cycleCount}
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        Session {new Date(session.startTime).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Start: {formatDateTime(session.startTime)}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Duration: {formatDuration(session.startTime, session.endTime)}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Cycles: {session.cycleCount}
+                      </div>
+                     
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => handleDeleteSession(session.id, e)}
+                      disabled={deletingSessionId === session.id}
+                      className="ml-2 shrink-0"
+                    >
+                      {deletingSessionId === session.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                         "Delete"
+                      )}
+                    </Button>
                   </div>
                 </div>
               ))}
