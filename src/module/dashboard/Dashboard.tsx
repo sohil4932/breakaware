@@ -430,14 +430,14 @@ const Dashboard = () => {
       <div className="space-y-6">
         {/* Connection Status and Buttons */}
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-start md:items-center flex-col md:flex-row w-full">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Device Connection</h3>
               <p className="text-sm text-gray-500">{status || 'Not connected'}</p>
             </div>
-            <div className="space-x-4">
+            <div className="space-x-4 mt-4  md:mt-0">
               {!isConnected && (
-                <Button onClick={handleConnect}>
+                <Button onClick={handleConnect} size={'sm'}>
                   Connect Device
                 </Button>
               )}

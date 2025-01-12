@@ -119,131 +119,132 @@ const SessionHistory = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex h-screen overflow-hidden">
-        {/* Sessions List - Left Side */}
-        <div className="w-1/3 h-full border-r border-gray-200 overflow-hidden flex flex-col">
-          <h2 className="text-xl font-semibold mb-4 p-4">Session History</h2>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <div className="space-y-2">
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                    selectedSession?.id === session.id
-                      ? 'bg-blue-100 border-blue-500'
-                      : 'bg-white hover:bg-gray-50'
-                  } border relative`}
-                  onClick={() => setSelectedSession(session)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        Session {new Date(session.startTime).toLocaleDateString()}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Start: {formatDateTime(session.startTime)}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Duration: {formatDuration(session.startTime, session.endTime)}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Cycles: {session.cycleCount}
-                      </div>
-                     
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => handleDeleteSession(session.id, e)}
-                      disabled={deletingSessionId === session.id}
-                      className="ml-2 shrink-0"
-                    >
-                      {deletingSessionId === session.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                         "Delete"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+    <div className="flex flex-col md:flex-row md:h-screen  overflow-hidden">
+ 
+      {/* Session Details - Top on Mobile, Right on Desktop */}
+      <div className="w-full md:w-2/3 h-full overflow-y-auto p-4 order-2 ">
+        {selectedSession ? (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">
+              Session Details - {new Date(selectedSession.startTime).toLocaleDateString()}
+            </h2>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900">Average Breath In</h3>
+                <p className="text-3xl font-bold mt-2">{selectedSession.avgBreathIn.toFixed(1)}s</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900">Average Breath Out</h3>
+                <p className="text-3xl font-bold mt-2">{selectedSession.avgBreathOut.toFixed(1)}s</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900">Cycle Count</h3>
+                <p className="text-3xl font-bold mt-2">{selectedSession.cycleCount}</p>
+              </div>
+            </div>
+
+            {/* Temperature Chart */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Temperature Over Time</h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={ selectedSession.temperatureArray.map((temp, index) => ({
+                      time: selectedSession.startTime + (index * 1000), // Assuming 1 second intervals
+                      temperature: temp
+                    }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="time"
+                      type="number"
+                      domain={['dataMin', 'dataMax']}
+                      tickFormatter={getTimeDisplay}
+                      label={{ value: 'Time (seconds)', position: 'bottom' }}
+                    />
+                    <YAxis
+                      domain={['auto', 'auto']}
+                      tickFormatter={(value) => `${value}°C`}
+                      label={{ value: 'Temperature (°C)', angle: -90, position: 'left' }}
+                    />
+                    <Tooltip
+                      labelFormatter={(label) => getTimeDisplay(Number(label))}
+                      formatter={(value: any) => [`${value}°C`, 'Temperature']}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="temperature"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Select a session to view details</p>
+          </div>
+        )}
+      </div>
 
-        {/* Session Details - Right Side */}
-        <div className="w-2/3 h-full overflow-y-auto p-4">
-          {selectedSession ? (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold">
-                Session Details - {new Date(selectedSession.startTime).toLocaleDateString()}
-              </h2>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-medium text-gray-900">Average Breath In</h3>
-                  <p className="text-3xl font-bold mt-2">{selectedSession.avgBreathIn.toFixed(1)}s</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-medium text-gray-900">Average Breath Out</h3>
-                  <p className="text-3xl font-bold mt-2">{selectedSession.avgBreathOut.toFixed(1)}s</p>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="text-lg font-medium text-gray-900">Cycle Count</h3>
-                  <p className="text-3xl font-bold mt-2">{selectedSession.cycleCount}</p>
+      {/* Sessions List - Bottom on Mobile, Left on Desktop */}
+      <div className={`w-full md:w-1/3 h-screen md:h-full border-t md:border-t-0 md:border-r border-gray-200 overflow-hidden flex flex-col order-1 `}>
+        <h2 className="text-xl font-semibold mb-4 p-4">Session History</h2>
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="space-y-2">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                  selectedSession?.id === session.id
+                    ? 'bg-blue-100 border-blue-500'
+                    : 'bg-white hover:bg-gray-50'
+                } border relative`}
+                onClick={() => setSelectedSession(session)}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="font-medium">
+                      Session {new Date(session.startTime).toLocaleDateString()}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Start: {formatDateTime(session.startTime)}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Duration: {formatDuration(session.startTime, session.endTime)}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Cycles: {session.cycleCount}
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    disabled={deletingSessionId === session.id}
+                    className="ml-2 shrink-0"
+                  >
+                    {deletingSessionId === session.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                       "Delete"
+                    )}
+                  </Button>
                 </div>
               </div>
-
-              {/* Temperature Chart */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Temperature Over Time</h3>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={ selectedSession.temperatureArray.map((temp, index) => ({
-                        time: selectedSession.startTime + (index * 1000), // Assuming 1 second intervals
-                        temperature: temp
-                      }))}
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="time"
-                        type="number"
-                        domain={['dataMin', 'dataMax']}
-                        tickFormatter={getTimeDisplay}
-                        label={{ value: 'Time (seconds)', position: 'bottom' }}
-                      />
-                      <YAxis
-                        domain={['auto', 'auto']}
-                        tickFormatter={(value) => `${value}°C`}
-                        label={{ value: 'Temperature (°C)', angle: -90, position: 'left' }}
-                      />
-                      <Tooltip
-                        labelFormatter={(label) => getTimeDisplay(Number(label))}
-                        formatter={(value: any) => [`${value}°C`, 'Temperature']}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="temperature"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">Select a session to view details</p>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
+  </DashboardLayout>
+
   );
 };
 
